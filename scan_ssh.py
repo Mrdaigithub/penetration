@@ -3,7 +3,7 @@
 import nmap
 
 
-def append_ip(ip, filename='./ip_list.txt'):
+def append_ip(ip, filename='./kf-idc.com_ip_list.txt'):
     with open(filename, 'a') as f:
         f.write('%s\n' % ip)
 
@@ -21,8 +21,9 @@ def scan_ssh(ip_block, port=22):
 
 
 def main():
-    for i in range(0, 256):
-        scan_ssh('47.52.%s' % i)
+    scan_ssh('103.210.%s' % '236')
+    # for i in range(0, 256):
+    #     scan_ssh('47.52.%s' % i)
 
 
 if __name__ == '__main__':

@@ -1,4 +1,5 @@
 # coding=UTF-8
+
 from pexpect import pxssh
 import optparse
 import time
@@ -45,10 +46,10 @@ def main():
     fn = open(passwdFile, 'r')
     for line in fn.readlines():
         if Found:
-            print "[*] Exiting: Password Found"
+            print("[*] Exiting: Password Found")
             exit(0)
             if Fails > 5:
-                print "[!] Exiting: Too Many Socket Timeouts"
+                print("[!] Exiting: Too Many Socket Timeouts")
                 exit(0)
         connection_lock.acquire()
         password = line.strip('\r').strip('\n')
