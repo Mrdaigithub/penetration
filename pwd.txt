@@ -7,7 +7,6 @@ echina0228
 xiaxue123-$$
 4rf7uj3ed8ik
 !!changeme$$
-root
 ebochai517
 qifengjc09001.
 1qa2ws3ed
@@ -98,6 +97,7 @@ a12345
 xm123654
 fiyegdsk
 longsheng
+root
 sh123456
 zhoufeihack!@#wj
 swsoft
