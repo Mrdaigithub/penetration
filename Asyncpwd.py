@@ -11,13 +11,15 @@ class Asyncpwd:
         self.password_list = lib.get_filedata(pfile)
         self.port = port
         self.known_hosts = known_hosts
-        pwd_count = math.ceil(len(self.password_list) / asynclen)
+        self.pwd_count = math.ceil(len(self.password_list) / asynclen)
         loop = asyncio.get_event_loop()
-        for time in range(int(pwd_count)):
+        while self.pwd_count:
             if self.found:
                 break
             loop.run_until_complete(
-                self.run_multiple_clients(self.password_list[time * asynclen:time * asynclen + asynclen]))
+                self.run_multiple_clients(self.password_list[:asynclen]))
+            self.password_list = self.password_list[asynclen:]
+            self.pwd_count = math.ceil(len(self.password_list) / asynclen)
 
     async def run_client(self, password):
         print('host: %s  -----  start test %s' % (self.host, password))
@@ -33,7 +35,7 @@ class Asyncpwd:
         results = await asyncio.gather(*tasks, return_exceptions=True)
         for i, result in enumerate(results, 1):
             if isinstance(result, Exception):
-                print('Task %d failed: %s' % (i, str(result)))
+                print('Task %d failed: %s' % (i, result))
             elif result.exit_status != 0:
                 print('Task %d exited with status %s:' % (i, result.exit_status))
                 print(result.stderr, end='')
