@@ -21,10 +21,8 @@ class Conn:
         self.known_hosts = known_hosts
         self.process_num = process_num
         self.thread_num = thread_num
-        self.loop = asyncio.get_event_loop()
 
     async def run_client(self, host=None, password=None):
-        print('run shh%s@%s' % (self.username, host))
         if not host:
             host = self.host
         if not password:
@@ -64,18 +62,17 @@ class Conn:
                 print('Task %d succeeded: ' % i, end='')
                 print(result.stdout, end='')
 
-    def test_hosts(self, hosts_filename, callback):
+    def test_hosts(self, loop_instance, hosts_filename, callback):
         hosts = []
         with open(hosts_filename, 'r') as f:
             while True:
                 line = f.readline().strip()
                 if not line:
                     if len(hosts):
-                        self.loop.run_until_complete(self.run_multiple_hosts(hosts, callback))
+                        loop_instance.run_until_complete(self.run_multiple_hosts(hosts, callback))
                     break
                 if len(hosts) > self.thread_num:
-                    print(hosts)
-                    self.loop.run_until_complete(self.run_multiple_hosts(hosts, callback))
+                    loop_instance.run_until_complete(self.run_multiple_hosts(hosts, callback))
                     hosts = []
                 hosts.append(line)
 
