@@ -25,6 +25,8 @@ class Conn:
         self.process_num = process_num
         self.thread_num = thread_num
         self.timeout = timeout
+        self.error_count = 0
+        self.found = False
 
     async def run_client(self, host=None, password=None):
         if not host:
@@ -55,17 +57,23 @@ class Conn:
             else:
                 print('Task %s succeeded: ' % hosts[i - 1])
 
-    async def run_multiple_password(self, passwords):
+    async def run_multiple_password(self, passwords, trash_callback, find_callback):
         tasks = (asyncio.wait_for(self.run_client(password=password), timeout=self.timeout) for password in passwords)
         results = await asyncio.gather(*tasks, return_exceptions=True)
         for i, result in enumerate(results, 1):
             if isinstance(result, Exception):
+                if str(result) != 'Disconnect Error: Permission denied':
+                    self.error_count += 1
                 print('Host: %s Password: %s failed: %s' % (self.host, passwords[i - 1], result))
             elif result.exit_status != 0:
-                print('Host: %s Password: %s exited with status %s:' % (self.host, passwords[i - 1], result.exit_status))
+                print(
+                    'Host: %s Password: %s exited with status %s:' % (self.host, passwords[i - 1], result.exit_status))
                 print(result.stderr, end='')
+                self.error_count += 1
             else:
                 print('Host: %s Password: %s succeeded: ' % (self.host, passwords[i - 1]), end='')
+                find_callback(self.host, passwords[i - 1])
+                self.found = True
 
     def test_hosts(self, loop_instance, hosts_filename, callback):
         hosts = []
@@ -81,11 +89,19 @@ class Conn:
                     hosts = []
                 hosts.append(line)
 
-    def test_passwords(self, passwords_filename):
+    def test_passwords(self, passwords_filename, trash_callback, find_callback):
         passwords = units.fdata2list(passwords_filename)
+        max_error = math.ceil(len(passwords) * 0.05)
         password_count = math.ceil(len(passwords) / self.thread_num)
         loop = asyncio.get_event_loop()
         while password_count:
-            loop.run_until_complete(self.run_multiple_password(passwords[:self.thread_num]))
+            if self.error_count > max_error:
+                trash_callback(self.host)
+                return False
+            if self.found:
+                return True
+            loop.run_until_complete(
+                self.run_multiple_password(passwords[:self.thread_num], trash_callback, find_callback))
             passwords = passwords[self.thread_num:]
             password_count = math.ceil(len(passwords) / self.thread_num)
+        trash_callback(self.host)
