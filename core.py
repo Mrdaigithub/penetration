@@ -7,6 +7,7 @@ import redis
 import asyncio
 
 r = redis.Redis(host='127.0.0.1', port=6379, db=0)
+p = r.pipeline()
 
 
 def add_unuse_hosts():
@@ -14,7 +15,7 @@ def add_unuse_hosts():
         r.sadd('host:unuse', host)
         r.save()
 
-    conn = sshconnector.Conn(thread_num=10, timeout=3)
+    conn = sshconnector.Conn(db=r, thread_num=10, timeout=3)
     loop = asyncio.get_event_loop()
     conn.test_hosts(loop, './data/ip.csv', save_host)
 
@@ -28,7 +29,8 @@ def try_password_task():
         r.save()
 
     def find_callback(host, password):
-        r.sadd('host:find', host + ':' + password)
+        r.sadd('host:find', host)
+        r.set(host, password)
         r.save()
 
     conn = sshconnector.Conn(host=host)
@@ -41,3 +43,4 @@ def try_password():
         process.apply_async(try_password_task)
     process.close()
     process.join()
+    exit(0)

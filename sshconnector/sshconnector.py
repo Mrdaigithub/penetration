@@ -9,7 +9,9 @@ from units import units
 
 
 class Conn:
-    def __init__(self, host='127.0.0.1',
+    def __init__(self,
+                 db=None,
+                 host='127.0.0.1',
                  username='root',
                  password='root',
                  port=22,
@@ -17,6 +19,7 @@ class Conn:
                  process_num=multiprocessing.cpu_count(),
                  thread_num=5,
                  timeout=5):
+        self.db = db
         self.host = host
         self.username = username
         self.password = password
@@ -87,6 +90,10 @@ class Conn:
                 if len(hosts) > self.thread_num:
                     loop_instance.run_until_complete(self.run_multiple_hosts(hosts, callback))
                     hosts = []
+                if self.db.sismember('host:unuse', line)\
+                        or self.db.sismember('host:find', line)\
+                        or self.db.sismember('host:trash', line):
+                    continue
                 hosts.append(line)
 
     def test_passwords(self, passwords_filename, trash_callback, find_callback):
