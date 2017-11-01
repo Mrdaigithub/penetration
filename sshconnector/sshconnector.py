@@ -90,9 +90,14 @@ class Conn:
                 if len(hosts) > self.thread_num:
                     loop_instance.run_until_complete(self.run_multiple_hosts(hosts, callback))
                     hosts = []
-                if self.db.sismember('host:unuse', line)\
-                        or self.db.sismember('host:find', line)\
-                        or self.db.sismember('host:trash', line):
+                cursor = self.db.cursor()
+                try:
+                    cursor.execute(
+                        "SELECT find_host FROM find WHERE find_host = '%s' UNION SELECT unuse_host FROM unuse WHERE unuse_host = '%s' UNION SELECT trash_host FROM trash WHERE trash_host = '%s'" % (
+                            line, line, line))
+                    if cursor.fetchone():
+                        continue
+                except:
                     continue
                 hosts.append(line)
 
